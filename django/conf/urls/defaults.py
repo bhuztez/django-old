@@ -27,16 +27,16 @@ def patterns(prefix, *args):
         pattern_list.append(t)
     return pattern_list
 
-def url(regex, view, kwargs=None, name=None, prefix=''):
+def url(regex, view, kwargs=None, name=None, prefix='', domain=None):
     if isinstance(view, (list,tuple)):
         # For include(...) processing.
         urlconf_module, app_name, namespace = view
-        return RegexURLResolver(regex, urlconf_module, kwargs, app_name=app_name, namespace=namespace)
+        return RegexURLResolver(regex, urlconf_module, kwargs, app_name=app_name, namespace=namespace, domain=domain)
     else:
         if isinstance(view, basestring):
             if not view:
                 raise ImproperlyConfigured('Empty URL pattern view name not permitted (for pattern %r)' % regex)
             if prefix:
                 view = prefix + '.' + view
-        return RegexURLPattern(regex, view, kwargs, name)
+        return RegexURLPattern(regex, view, kwargs, name, domain)
 

@@ -116,7 +116,7 @@ def get_mod_func(callback):
     return callback[:dot], callback[dot+1:]
 
 class RegexURLPattern(object):
-    def __init__(self, regex, callback, default_args=None, name=None):
+    def __init__(self, regex, callback, default_args=None, name=None, domain=None):
         # regex is a string representing a regular expression.
         # callback is either a string like 'foo.views.news.stories.story_detail'
         # which represents the path to a module and a view function name, or a
@@ -129,6 +129,7 @@ class RegexURLPattern(object):
             self._callback_str = callback
         self.default_args = default_args or {}
         self.name = name
+        self.domain = domain
 
     def __repr__(self):
         return smart_str(u'<%s %s %s>' % (self.__class__.__name__, self.name, self.regex.pattern))
@@ -141,8 +142,8 @@ class RegexURLPattern(object):
             return
         self._callback_str = prefix + '.' + self._callback_str
 
-    def resolve(self, path):
-        match = self.regex.search(path)
+    def resolve(self, path, domain=None):
+        match = (self.domain is None or self.domain == domain) and self.regex.search(path)
         if match:
             # If there are any named groups, use those as kwargs, ignoring
             # non-named groups. Otherwise, pass all non-named arguments as
@@ -172,7 +173,7 @@ class RegexURLPattern(object):
     callback = property(_get_callback)
 
 class RegexURLResolver(object):
-    def __init__(self, regex, urlconf_name, default_kwargs=None, app_name=None, namespace=None):
+    def __init__(self, regex, urlconf_name, default_kwargs=None, app_name=None, namespace=None, domain=None):
         # regex is a string representing a regular expression.
         # urlconf_name is a string representing the module containing URLconfs.
         self.regex = re.compile(regex, re.UNICODE)
@@ -186,6 +187,7 @@ class RegexURLResolver(object):
         self._reverse_dict = None
         self._namespace_dict = None
         self._app_dict = None
+        self.domain = domain
 
     def __repr__(self):
         return smart_str(u'<%s %s (%s:%s) %s>' % (self.__class__.__name__, self.urlconf_name, self.app_name, self.namespace, self.regex.pattern))
@@ -206,20 +208,21 @@ class RegexURLResolver(object):
                 else:
                     parent = normalize(pattern.regex.pattern)
                     for name in pattern.reverse_dict:
-                        for matches, pat, defaults in pattern.reverse_dict.getlist(name):
-                            new_matches = []
-                            for piece, p_args in parent:
-                                new_matches.extend([(piece + suffix, p_args + args) for (suffix, args) in matches])
-                            lookups.appendlist(name, (new_matches, p_pattern + pat, dict(defaults, **pattern.default_kwargs)))
+                        for matches, pat, defaults, domain in pattern.reverse_dict.getlist(name):
+                            if self.domain is None or domain is None or domain == self.domain:
+                                new_matches = []
+                                for piece, p_args in parent:
+                                    new_matches.extend([(piece + suffix, p_args + args) for (suffix, args) in matches])
+                                lookups.appendlist(name, (new_matches, p_pattern + pat, dict(defaults, **pattern.default_kwargs), self.domain or domain))
                     for namespace, (prefix, sub_pattern) in pattern.namespace_dict.items():
                         namespaces[namespace] = (p_pattern + prefix, sub_pattern)
                     for app_name, namespace_list in pattern.app_dict.items():
                         apps.setdefault(app_name, []).extend(namespace_list)
-            else:
+            elif self.domain is None or pattern.domain is None or self.domain == pattern.domain:
                 bits = normalize(p_pattern)
-                lookups.appendlist(pattern.callback, (bits, p_pattern, pattern.default_args))
+                lookups.appendlist(pattern.callback, (bits, p_pattern, pattern.default_args, self.domain or pattern.domain))
                 if pattern.name is not None:
-                    lookups.appendlist(pattern.name, (bits, p_pattern, pattern.default_args))
+                    lookups.appendlist(pattern.name, (bits, p_pattern, pattern.default_args, self.domain or pattern.domain))
         self._reverse_dict = lookups
         self._namespace_dict = namespaces
         self._app_dict = apps
@@ -242,14 +245,14 @@ class RegexURLResolver(object):
         return self._app_dict
     app_dict = property(_get_app_dict)
 
-    def resolve(self, path):
+    def resolve(self, path, domain=None):
         tried = []
-        match = self.regex.search(path)
+        match = (self.domain is None or self.domain == domain) and self.regex.search(path)
         if match:
             new_path = path[match.end():]
             for pattern in self.url_patterns:
                 try:
-                    sub_match = pattern.resolve(new_path)
+                    sub_match = pattern.resolve(new_path, domain)
                 except Resolver404, e:
                     sub_tried = e.args[0].get('tried')
                     if sub_tried is not None:
@@ -310,7 +313,7 @@ class RegexURLResolver(object):
         except (ImportError, AttributeError), e:
             raise NoReverseMatch("Error importing '%s': %s." % (lookup_view, e))
         possibilities = self.reverse_dict.getlist(lookup_view)
-        for possibility, pattern, defaults in possibilities:
+        for possibility, pattern, defaults, domain in possibilities:
             for result, params in possibility:
                 if args:
                     if len(args) != len(params):
@@ -330,7 +333,7 @@ class RegexURLResolver(object):
                     unicode_kwargs = dict([(k, force_unicode(v)) for (k, v) in kwargs.items()])
                     candidate = result % unicode_kwargs
                 if re.search(u'^%s' % pattern, candidate, re.UNICODE):
-                    return candidate
+                    return candidate, domain
         # lookup_view can be URL label, or dotted path, or callable, Any of
         # these can be passed in at the top, but callables are not friendly in
         # error messages.
@@ -343,10 +346,10 @@ class RegexURLResolver(object):
         raise NoReverseMatch("Reverse for '%s' with arguments '%s' and keyword "
                 "arguments '%s' not found." % (lookup_view_s, args, kwargs))
 
-def resolve(path, urlconf=None):
+def resolve(path, urlconf=None, domain=None):
     if urlconf is None:
         urlconf = get_urlconf()
-    return get_resolver(urlconf).resolve(path)
+    return get_resolver(urlconf).resolve(path, domain)
 
 def reverse(viewname, urlconf=None, args=None, kwargs=None, prefix=None, current_app=None):
     if urlconf is None:
@@ -394,8 +397,10 @@ def reverse(viewname, urlconf=None, args=None, kwargs=None, prefix=None, current
                 else:
                     raise NoReverseMatch("%s is not a registered namespace" % key)
 
-    return iri_to_uri(u'%s%s' % (prefix, resolver.reverse(view,
-            *args, **kwargs)))
+    candidate, domain = resolver.reverse(view, *args, **kwargs)
+    if domain:
+        return iri_to_uri(u'http://%s/%s' %(domain, candidate))
+    return iri_to_uri(u'%s%s' % (prefix, candidate))
 
 reverse_lazy = lazy(reverse, str)
 

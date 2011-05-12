@@ -64,8 +64,8 @@ class CommonMiddleware(object):
         # trailing slash and there is no pattern for the current path
         if settings.APPEND_SLASH and (not old_url[1].endswith('/')):
             urlconf = getattr(request, 'urlconf', None)
-            if (not _is_valid_path(request.path_info, urlconf) and
-                    _is_valid_path("%s/" % request.path_info, urlconf)):
+            if (not _is_valid_path(request.path_info, urlconf, request.get_host()) and
+                    _is_valid_path("%s/" % request.path_info, urlconf, request.get_host())):
                 new_url[1] = new_url[1] + '/'
                 if settings.DEBUG and request.method == 'POST':
                     raise RuntimeError((""
@@ -152,7 +152,7 @@ def _is_internal_request(domain, referer):
     # Different subdomains are treated as different domains.
     return referer is not None and re.match("^https?://%s/" % re.escape(domain), referer)
 
-def _is_valid_path(path, urlconf=None):
+def _is_valid_path(path, urlconf=None, domain=None):
     """
     Returns True if the given path resolves against the default URL resolver,
     False otherwise.
@@ -161,7 +161,7 @@ def _is_valid_path(path, urlconf=None):
     easier, avoiding unnecessarily indented try...except blocks.
     """
     try:
-        urlresolvers.resolve(path, urlconf)
+        urlresolvers.resolve(path, urlconf, domain)
         return True
     except urlresolvers.Resolver404:
         return False

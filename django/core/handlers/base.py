@@ -98,7 +98,7 @@ class BaseHandler(object):
                         resolver = urlresolvers.RegexURLResolver(r'^/', urlconf)
 
                     callback, callback_args, callback_kwargs = resolver.resolve(
-                            request.path_info)
+                            request.path_info, request.get_host())
 
                     # Apply view middleware
                     for middleware_method in self._view_middleware:
