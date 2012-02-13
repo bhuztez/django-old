@@ -667,9 +667,9 @@ class. Here are the template loaders that come with Django:
     This loader is enabled by default.
 
 ``django.template.loaders.app_directories.Loader``
-    Loads templates from Django apps on the filesystem. For each app in
-    :setting:`INSTALLED_APPS`, the loader looks for a ``templates``
-    subdirectory. If the directory exists, Django looks for templates in there.
+    Loads templates from Django apps. For each app in :setting:`INSTALLED_APPS`,
+    the loader looks for a ``templates`` subdirectory. If the directory exists, 
+    Django looks for templates in there.
 
     This means you can store templates with your individual apps. This also
     makes it easy to distribute Django apps with default templates.
@@ -684,17 +684,7 @@ class. Here are the template loaders that come with Django:
     * ``/path/to/myproject/polls/templates/foo.html``
     * ``/path/to/myproject/music/templates/foo.html``
 
-    Note that the loader performs an optimization when it is first imported: It
-    caches a list of which :setting:`INSTALLED_APPS` packages have a
-    ``templates`` subdirectory.
-
     This loader is enabled by default.
-
-``django.template.loaders.eggs.Loader``
-    Just like ``app_directories`` above, but it loads templates from Python
-    eggs rather than from the filesystem.
-
-    This loader is disabled by default.
 
 ``django.template.loaders.cached.Loader``
     By default, the templating system will read and compile your templates every
@@ -850,8 +840,8 @@ of the ``load_template_source()`` method implemented there::
     class Loader(app_directories.Loader):
         is_usable = True
 
-        def load_template(self, template_name, template_dirs=None):
-            source, origin = self.load_template_source(template_name, template_dirs)
+        def load_template(self, template_name):
+            source, origin = self.load_template_source(template_name)
             template = Template(source)
             return template, origin
 

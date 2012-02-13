@@ -10,15 +10,16 @@ from django.utils._os import safe_join
 class Loader(BaseLoader):
     is_usable = True
 
-    def get_template_sources(self, template_name, template_dirs=None):
+    def __init__(self, template_dirs=None):
+        self.template_dirs = template_dirs or settings.TEMPLATE_DIRS
+
+    def get_template_sources(self, template_name):
         """
         Returns the absolute paths to "template_name", when appended to each
         directory in "template_dirs". Any paths that don't lie inside one of the
         template dirs are excluded from the result set, for security reasons.
         """
-        if not template_dirs:
-            template_dirs = settings.TEMPLATE_DIRS
-        for template_dir in template_dirs:
+        for template_dir in self.template_dirs:
             try:
                 yield safe_join(template_dir, template_name)
             except UnicodeDecodeError:
@@ -30,9 +31,9 @@ class Loader(BaseLoader):
                 # fatal).
                 pass
 
-    def load_template_source(self, template_name, template_dirs=None):
+    def load_template_source(self, template_name):
         tried = []
-        for filepath in self.get_template_sources(template_name, template_dirs):
+        for filepath in self.get_template_sources(template_name):
             try:
                 file = open(filepath)
                 try:

@@ -38,14 +38,8 @@ from .nodelist import NodelistTest, ErrorIndexTest
 from .smartif import SmartIfTests
 from .response import (TemplateResponseTest, CacheMiddlewareTest,
     SimpleTemplateResponseTest, CustomURLConfTest)
+from .loaders import RenderToStringTest, EggLoaderTest
 
-try:
-    from .loaders import RenderToStringTest, EggLoaderTest
-except ImportError, e:
-    if "pkg_resources" in e.message:
-        pass # If setuptools isn't installed, that's fine. Just move on.
-    else:
-        raise
 
 from . import filters
 
@@ -161,20 +155,16 @@ class Templates(unittest.TestCase):
         settings.MEDIA_URL = self.old_media_url
 
     def test_loaders_security(self):
-        ad_loader = app_directories.Loader()
-        fs_loader = filesystem.Loader()
         def test_template_sources(path, template_dirs, expected_sources):
             if isinstance(expected_sources, list):
                 # Fix expected sources so they are abspathed
                 expected_sources = [os.path.abspath(s) for s in expected_sources]
-            # Test the two loaders (app_directores and filesystem).
-            func1 = lambda p, t: list(ad_loader.get_template_sources(p, t))
-            func2 = lambda p, t: list(fs_loader.get_template_sources(p, t))
-            for func in (func1, func2):
-                if isinstance(expected_sources, list):
-                    self.assertEqual(func(path, template_dirs), expected_sources)
-                else:
-                    self.assertRaises(expected_sources, func, path, template_dirs)
+            # Test filesystem loader.
+            func = lambda p, t: list(filesystem.Loader(t).get_template_sources(p))
+            if isinstance(expected_sources, list):
+                self.assertEqual(func(path, template_dirs), expected_sources)
+            else:
+                self.assertRaises(expected_sources, func, path, template_dirs)
 
         template_dirs = ['/dir1', '/dir2']
         test_template_sources('index.html', template_dirs,

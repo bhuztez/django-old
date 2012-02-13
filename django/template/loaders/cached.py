@@ -27,23 +27,18 @@ class Loader(BaseLoader):
             self._cached_loaders = cached_loaders
         return self._cached_loaders
 
-    def find_template(self, name, dirs=None):
+    def find_template(self, name):
         for loader in self.loaders:
             try:
-                template, display_name = loader(name, dirs)
-                return (template, make_origin(display_name, loader, name, dirs))
+                template, display_name = loader(name)
+                return (template, make_origin(display_name, loader, name))
             except TemplateDoesNotExist:
                 pass
         raise TemplateDoesNotExist(name)
 
-    def load_template(self, template_name, template_dirs=None):
-        key = template_name
-        if template_dirs:
-            # If template directories were specified, use a hash to differentiate
-            key = '-'.join([template_name, hashlib.sha1('|'.join(template_dirs)).hexdigest()])
-
-        if key not in self.template_cache:
-            template, origin = self.find_template(template_name, template_dirs)
+    def load_template(self, template_name):
+        if template_name not in self.template_cache:
+            template, origin = self.find_template(template_name)
             if not hasattr(template, 'render'):
                 try:
                     template = get_template_from_string(template, origin, template_name)
@@ -53,8 +48,8 @@ class Loader(BaseLoader):
                     # we were asked to load. This allows for correct identification (later)
                     # of the actual template that does not exist.
                     return template, origin
-            self.template_cache[key] = template
-        return self.template_cache[key], None
+            self.template_cache[template_name] = template
+        return self.template_cache[template_name], None
 
     def reset(self):
         "Empty the template cache."
