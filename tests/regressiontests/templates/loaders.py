@@ -1,7 +1,5 @@
 """
 Test cases for the template loaders
-
-Note: This test requires setuptools!
 """
 
 from django.conf import settings
@@ -10,89 +8,57 @@ if __name__ == '__main__':
     settings.configure()
 
 import sys
-import pkg_resources
 import imp
 import StringIO
 import os.path
 
 from django.template import TemplateDoesNotExist, Context
-from django.template.loaders.eggs import Loader as EggLoader
+from django.template.loaders.app_directories import _refresh_app_template_loaders
+from django.template.loaders.app_directories import Loader as EggLoader
 from django.template import loader
 from django.utils import unittest
 
 
-# Mock classes and objects for pkg_resources functions.
-class MockProvider(pkg_resources.NullProvider):
-    def __init__(self, module):
-        pkg_resources.NullProvider.__init__(self, module)
-        self.module = module
-
-    def _has(self, path):
-        return path in self.module._resources
-
-    def _isdir(self,path):
-        return False
-
-    def get_resource_stream(self, manager, resource_name):
-        return self.module._resources[resource_name]
-
-    def _get(self, path):
-        return self.module._resources[path].read()
-
-class MockLoader(object):
-    pass
-
-def create_egg(name, resources):
-    """
-    Creates a mock egg with a list of resources.
-
-    name: The name of the module.
-    resources: A dictionary of resources. Keys are the names and values the data.
-    """
-    egg = imp.new_module(name)
-    egg.__loader__ = MockLoader()
-    egg._resources = resources
-    sys.modules[name] = egg
-
-
 class EggLoaderTest(unittest.TestCase):
     def setUp(self):
-        pkg_resources._provider_factories[MockLoader] = MockProvider
-
-        self.empty_egg = create_egg("egg_empty", {})
-        self.egg_1 = create_egg("egg_1", {
-            os.path.normcase('templates/y.html') : StringIO.StringIO("y"),
-            os.path.normcase('templates/x.txt') : StringIO.StringIO("x"),
-        })
-        self._old_installed_apps = settings.INSTALLED_APPS
-        settings.INSTALLED_APPS = []
+        self.old_path = sys.path[:]
+        self.old_apps = settings.INSTALLED_APPS
+        self.egg_dir = '%s/eggs' % os.path.dirname(__file__)
+        egg_name = '%s/templatesegg.egg' % self.egg_dir
+        sys.path.append(egg_name)
 
     def tearDown(self):
-        settings.INSTALLED_APPS = self._old_installed_apps
+        settings.INSTALLED_APPS = self.old_apps
+        _refresh_app_template_loaders()
+        sys.path = self.old_path
 
     def test_empty(self):
         "Loading any template on an empty egg should fail"
         settings.INSTALLED_APPS = ['egg_empty']
+        _refresh_app_template_loaders()
         egg_loader = EggLoader()
         self.assertRaises(TemplateDoesNotExist, egg_loader.load_template_source, "not-existing.html")
 
     def test_non_existing(self):
         "Template loading fails if the template is not in the egg"
         settings.INSTALLED_APPS = ['egg_1']
+        _refresh_app_template_loaders()
         egg_loader = EggLoader()
         self.assertRaises(TemplateDoesNotExist, egg_loader.load_template_source, "not-existing.html")
 
     def test_existing(self):
         "A template can be loaded from an egg"
         settings.INSTALLED_APPS = ['egg_1']
+        _refresh_app_template_loaders()
         egg_loader = EggLoader()
         contents, template_name = egg_loader.load_template_source("y.html")
         self.assertEqual(contents, "y")
-        self.assertEqual(template_name, "egg:egg_1:templates/y.html")
+        self.assertEqual(template_name, u"app:egg_1:templates/y.html")
 
     def test_not_installed(self):
         "Loading an existent template from an egg not included in INSTALLED_APPS should fail"
         settings.INSTALLED_APPS = []
+        _refresh_app_template_loaders()
         egg_loader = EggLoader()
         self.assertRaises(TemplateDoesNotExist, egg_loader.load_template_source, "y.html")
 

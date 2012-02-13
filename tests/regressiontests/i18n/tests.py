@@ -4,6 +4,7 @@ from __future__ import absolute_import
 import datetime
 import decimal
 import os
+import sys
 import pickle
 from threading import local
 
@@ -867,6 +868,33 @@ class LocalePathsResolutionOrderI18NTests(ResolutionOrderI18NTests):
         extended_apps = list(settings.INSTALLED_APPS) + ['regressiontests.i18n.resolution']
         with self.settings(INSTALLED_APPS=extended_apps):
             self.assertUgettext('Time', 'LOCALE_PATHS')
+
+class EggResolutionOrderI18NTests(ResolutionOrderI18NTests):
+
+    def setUp(self):
+        self.old_path = sys.path[:]
+        self.egg_dir = '%s/eggs' % os.path.dirname(__file__)
+        egg_name = '%s/localeegg.egg' % self.egg_dir
+        sys.path.insert(0, egg_name)
+        super(EggResolutionOrderI18NTests, self).setUp()
+
+    def tearDown(self):
+        super(EggResolutionOrderI18NTests, self).tearDown()
+        sys.path = self.old_path
+
+class EggAppResolutionOrderI18NTests(EggResolutionOrderI18NTests):
+
+    def setUp(self):
+        self.old_installed_apps = settings.INSTALLED_APPS
+        settings.INSTALLED_APPS = ['resolution'] + list(settings.INSTALLED_APPS)
+        super(EggAppResolutionOrderI18NTests, self).setUp()
+
+    def tearDown(self):
+        settings.INSTALLED_APPS = self.old_installed_apps
+        super(EggAppResolutionOrderI18NTests, self).tearDown()
+
+    def test_app_translation(self):
+        self.assertUgettext('Date/time', 'APP')
 
 class DjangoFallbackResolutionOrderI18NTests(ResolutionOrderI18NTests):
 

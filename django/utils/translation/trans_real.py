@@ -6,6 +6,8 @@ import re
 import sys
 import gettext as gettext_module
 from threading import local
+import pkgutil
+import copy
 
 try:
     from cStringIO import StringIO
@@ -14,6 +16,9 @@ except ImportError:
 
 from django.utils.importlib import import_module
 from django.utils.safestring import mark_safe, SafeData
+from django.utils.resource_loading import (
+    FileSystemResourceLoader,
+    AppPackageResourceLoader)
 
 
 # Translations are cached in a dictionary for every language+app tuple.
@@ -109,7 +114,7 @@ def translation(language):
 
     from django.conf import settings
 
-    globalpath = os.path.join(os.path.dirname(sys.modules[settings.__module__].__file__), 'locale')
+    globalloader = FileSystemResourceLoader(os.path.join(os.path.dirname(sys.modules[settings.__module__].__file__), 'locale'))
 
     def _fetch(lang, fallback=None):
 
@@ -121,15 +126,26 @@ def translation(language):
 
         loc = to_locale(lang)
 
-        def _translation(path):
-            try:
-                t = gettext_module.translation('django', path, [loc], DjangoTranslation)
-                t.set_language(lang)
-                return t
-            except IOError:
-                return None
+        def _translation(loader):
+            nelangs = gettext_module._expand_lang(loc)
+            for nelang in nelangs:
+                locpath = os.path.join(nelang, 'LC_MESSAGES', 'django.mo')
+                try:
+                    fp = loader.get_stream(locpath)
+                except Exception:
+                    continue
 
-        res = _translation(globalpath)
+                if fp is not None:
+                    t = DjangoTranslation(fp)
+                    t = copy.copy(t)
+                    break
+            else:
+                return None
+                
+            t.set_language(lang)
+            return t
+
+        res = _translation(globalloader)
 
         # We want to ensure that, for example,  "en-gb" and "en-us" don't share
         # the same translation object (thus, merging en-us with a local update
@@ -140,8 +156,8 @@ def translation(language):
             res._info = res._info.copy()
             res._catalog = res._catalog.copy()
 
-        def _merge(path):
-            t = _translation(path)
+        def _merge(loader):
+            t = _translation(loader)
             if t is not None:
                 if res is None:
                     return t
@@ -150,15 +166,14 @@ def translation(language):
             return res
 
         for appname in reversed(settings.INSTALLED_APPS):
-            app = import_module(appname)
-            apppath = os.path.join(os.path.dirname(app.__file__), 'locale')
-
-            if os.path.isdir(apppath):
-                res = _merge(apppath)
+            loader = AppPackageResourceLoader(appname, 'locale')
+            if loader.isdir():
+                res = _merge(loader)
 
         for localepath in reversed(settings.LOCALE_PATHS):
-            if os.path.isdir(localepath):
-                res = _merge(localepath)
+            loader = FileSystemResourceLoader(localepath)
+            if loader.isdir():
+                res = _merge(loader)
 
         if res is None:
             if fallback is not None:

@@ -3,10 +3,9 @@
 # This uses the TEMPLATE_LOADERS setting, which is a list of loaders to use.
 # Each loader is expected to have this interface:
 #
-#    callable(name, dirs=[])
+#    callable(name)
 #
 # name is the template name.
-# dirs is an optional list of directories to search instead of TEMPLATE_DIRS.
 #
 # The loader should return a tuple of (template_source, path). The path returned
 # might be shown to the user for debugging purposes, so it should identify where
@@ -38,12 +37,12 @@ class BaseLoader(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, template_name, template_dirs=None):
-        return self.load_template(template_name, template_dirs)
+    def __call__(self, template_name):
+        return self.load_template(template_name)
 
-    def load_template(self, template_name, template_dirs=None):
-        source, display_name = self.load_template_source(template_name, template_dirs)
-        origin = make_origin(display_name, self.load_template_source, template_name, template_dirs)
+    def load_template(self, template_name):
+        source, display_name = self.load_template_source(template_name)
+        origin = make_origin(display_name, self.load_template_source, template_name)
         try:
             template = get_template_from_string(source, origin, template_name)
             return template, None
@@ -54,7 +53,7 @@ class BaseLoader(object):
             # not exist.
             return source, display_name
 
-    def load_template_source(self, template_name, template_dirs=None):
+    def load_template_source(self, template_name):
         """
         Returns a tuple containing the source and origin for the given template
         name.
@@ -71,16 +70,16 @@ class BaseLoader(object):
         pass
 
 class LoaderOrigin(Origin):
-    def __init__(self, display_name, loader, name, dirs):
+    def __init__(self, display_name, loader, name):
         super(LoaderOrigin, self).__init__(display_name)
-        self.loader, self.loadname, self.dirs = loader, name, dirs
+        self.loader, self.loadname = loader, name
 
     def reload(self):
-        return self.loader(self.loadname, self.dirs)[0]
+        return self.loader(self.loadname)[0]
 
-def make_origin(display_name, loader, name, dirs):
+def make_origin(display_name, loader, name):
     if settings.TEMPLATE_DEBUG and display_name:
-        return LoaderOrigin(display_name, loader, name, dirs)
+        return LoaderOrigin(display_name, loader, name)
     else:
         return None
 
@@ -117,7 +116,7 @@ def find_template_loader(loader):
     else:
         raise ImproperlyConfigured('Loader does not define a "load_template" callable template source loader')
 
-def find_template(name, dirs=None):
+def find_template(name):
     # Calculate template_source_loaders the first time the function is executed
     # because putting this logic in the module-level namespace may cause
     # circular import errors. See Django ticket #1292.
@@ -131,8 +130,8 @@ def find_template(name, dirs=None):
         template_source_loaders = tuple(loaders)
     for loader in template_source_loaders:
         try:
-            source, display_name = loader(name, dirs)
-            return (source, make_origin(display_name, loader, name, dirs))
+            source, display_name = loader(name)
+            return (source, make_origin(display_name, loader, name))
         except TemplateDoesNotExist:
             pass
     raise TemplateDoesNotExist(name)
