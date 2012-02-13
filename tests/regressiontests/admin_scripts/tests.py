@@ -93,6 +93,7 @@ class AdminScriptTestCase(unittest.TestCase):
         lib1_dir = os.path.join(os.path.dirname(__file__), 'lib1')
         lib2_dir = os.path.join(os.path.dirname(__file__), 'lib2')
         lib3_dir = os.path.join(os.path.dirname(__file__), 'lib3')
+        eggs_dir = os.path.join(os.path.dirname(__file__), 'eggs')
         ext_backend_base_dirs = self._ext_backend_paths()
 
         # Remember the old environment
@@ -1558,8 +1559,7 @@ class StartProject(LiveServerTestCase, AdminScriptTestCase):
 
 class NamespacePackagedApps(AdminScriptTestCase):
     def setUp(self):
-        self.write_settings('settings.py', apps=['nons_app', 'nsapps.contrib.app1','nsapps.contrib.app2','exapps.app3'])
-        test_dir = os.path.dirname(os.path.dirname(__file__))
+        self.write_settings('settings.py', apps=['nons_app', 'nsapps.contrib.app1','nsapps.contrib.app2','exapps.app3', 'egg_module'])
         settings_file = open(os.path.join(test_dir, 'settings.py'), 'a')
         settings_file.write('import _addsitedir')
         settings_file.close()
@@ -1574,6 +1574,7 @@ class NamespacePackagedApps(AdminScriptTestCase):
         self.assertOutput(out, "app1_command1")
         self.assertOutput(out, "app2_command1")
         self.assertOutput(out, "app3_command1")
+        self.assertOutput(out, "egg_command")
 
     def test_nons_app(self):
         args = ['nons_app_command1']
@@ -1598,10 +1599,16 @@ class NamespacePackagedApps(AdminScriptTestCase):
         self.assertNoOutput(err)
         self.assertOutput(out, "EXECUTE:app3_command1")
 
+    def test_exapps(self):
+        args = ['egg_command']
+        out, err = self.run_manage(args)
+        self.assertNoOutput(err)
+        self.assertOutput(out, "EXECUTE:egg_command")
+
+
 class PreloadedNamespacePackagedApps(AdminScriptTestCase):
     def setUp(self):
         self.write_settings('settings.py', apps=['nsapps.contrib.app1','nsapps.contrib.app2'])
-        test_dir = os.path.dirname(os.path.dirname(__file__))
         settings_file = open(os.path.join(test_dir, 'settings.py'), 'a')
         settings_file.write('import nsapps')
         settings_file.close()

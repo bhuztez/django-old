@@ -3,11 +3,12 @@ import os
 import sys
 from optparse import OptionParser, NO_DEFAULT
 import imp
+import pkgutil
 import warnings
 
 from django.core.management.base import BaseCommand, CommandError, handle_default_options
 from django.core.management.color import color_style
-from django.utils.importlib import import_module
+from django.utils.importlib import import_module, find_package_path
 
 # For backwards compatibility: get_version() used to be in this module.
 from django import get_version
@@ -23,11 +24,11 @@ def find_commands(management_dir):
 
     Returns an empty list if no commands are defined.
     """
-    command_dir = os.path.join(management_dir, 'commands')
     try:
-        return [f[:-3] for f in os.listdir(command_dir)
-                if not f.startswith('_') and f.endswith('.py')]
-    except OSError:
+        commands_dir = find_package_path('commands', [management_dir])[0]
+        return [name for loader,name,ispkg in pkgutil.iter_modules([commands_dir])
+                if not name.startswith('_') ]
+    except ImportError:
         return []
 
 def find_management_module(app_name):
@@ -54,7 +55,7 @@ def find_management_module(app_name):
     else:
         parts.reverse()
         part = parts.pop()
-        path = sys.path
+        path = None
 
         # When using manage.py, the project module is added to the path,
         # loaded, then removed from the path. This means that
@@ -63,31 +64,14 @@ def find_management_module(app_name):
         # module, we need look for the case where the project name is part
         # of the app_name but the project directory itself isn't on the path.
         try:
-            next_path = []
-            for p in path:
-                try:
-                    next_path.append(imp.find_module(part, [p])[1])
-                except ImportError:
-                    pass
-            if not next_path:
-                raise ImportError("No module named %s" % part)
-            path = next_path
+            path = find_package_path(part, path)
         except ImportError,e:
             if os.path.basename(os.getcwd()) != part:
                 raise e
 
     while parts:
         part = parts.pop()
-        next_path = []
-        for p in path:
-            try:
-                next_path.append(imp.find_module(part, [p])[1])
-            except ImportError:
-                pass
-        if not next_path:
-            raise ImportError("No module named %s" % part)
-        path = next_path
-
+        path = find_package_path(part, path)
     return path[0]
 
 def load_command_class(app_name, name):
