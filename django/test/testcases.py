@@ -803,8 +803,8 @@ class TestCase(TransactionTestCase):
     """
 
     def _fixture_setup(self):
-        if not connections_support_transactions():
-            return super(TestCase, self)._fixture_setup()
+        # if not connections_support_transactions():
+        #    return super(TestCase, self)._fixture_setup()
 
         # If the test case has a multi_db=True flag, setup all databases.
         # Otherwise, just use default.
@@ -818,8 +818,8 @@ class TestCase(TransactionTestCase):
             transaction.managed(True, using=db)
         disable_transaction_methods()
 
-        from django.contrib.sites.models import Site
-        Site.objects.clear_cache()
+        # from django.contrib.sites.models import Site
+        # Site.objects.clear_cache()
 
         for db in databases:
             if hasattr(self, 'fixtures'):
@@ -831,8 +831,8 @@ class TestCase(TransactionTestCase):
                              })
 
     def _fixture_teardown(self):
-        if not connections_support_transactions():
-            return super(TestCase, self)._fixture_teardown()
+        # if not connections_support_transactions():
+        #    return super(TestCase, self)._fixture_teardown()
 
         # If the test case has a multi_db=True flag, teardown all databases.
         # Otherwise, just teardown default.

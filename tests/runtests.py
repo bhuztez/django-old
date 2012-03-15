@@ -28,22 +28,22 @@ os.environ['DJANGO_TEST_TEMP_DIR'] = TEMP_DIR
 REGRESSION_SUBDIRS_TO_SKIP = ['locale']
 
 ALWAYS_INSTALLED_APPS = [
-    'django.contrib.contenttypes',
-    'django.contrib.auth',
-    'django.contrib.sites',
-    'django.contrib.flatpages',
-    'django.contrib.redirects',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.comments',
-    'django.contrib.admin',
-    'django.contrib.admindocs',
-    'django.contrib.databrowse',
-    'django.contrib.staticfiles',
-    'django.contrib.humanize',
-    'regressiontests.staticfiles_tests',
-    'regressiontests.staticfiles_tests.apps.test',
-    'regressiontests.staticfiles_tests.apps.no_label',
+    # 'django.contrib.contenttypes',
+    # 'django.contrib.auth',
+    # 'django.contrib.sites',
+    # 'django.contrib.flatpages',
+    # 'django.contrib.redirects',
+    # 'django.contrib.sessions',
+    # 'django.contrib.messages',
+    # 'django.contrib.comments',
+    # 'django.contrib.admin',
+    # 'django.contrib.admindocs',
+    # 'django.contrib.databrowse',
+    # 'django.contrib.staticfiles',
+    # 'django.contrib.humanize',
+    # 'regressiontests.staticfiles_tests',
+    # 'regressiontests.staticfiles_tests.apps.test',
+    # 'regressiontests.staticfiles_tests.apps.no_label',
 ]
 
 def geodjango(settings):
