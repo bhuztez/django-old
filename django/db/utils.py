@@ -1,5 +1,6 @@
 import os
 from threading import local
+import pkgutil
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -25,13 +26,10 @@ def load_backend(backend_name):
     except ImportError, e_user:
         # The database backend wasn't found. Display a helpful error message
         # listing all possible (built-in) database backends.
-        backend_dir = os.path.join(os.path.dirname(__file__), 'backends')
-        try:
-            available_backends = [f for f in os.listdir(backend_dir)
-                    if os.path.isdir(os.path.join(backend_dir, f))
-                    and not f.startswith('.')]
-        except EnvironmentError:
-            available_backends = []
+        backend_path = import_module('django.db.backends').__path__
+        available_backends = [ name for loader, name, ispkg
+                in pkgutil.iter_modules(backend_path)
+                if ispkg ]
         full_notation = backend_name.startswith('django.db.backends.')
         if full_notation:
             backend_name = backend_name[19:] # See #15621.
